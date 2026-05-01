@@ -9,6 +9,8 @@ import ChatFeedback from "./pages/ChatFeedback";
 import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import EventRequests from "./pages/EventRequests";
+import EventsManagement from "./pages/EventsManagement";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -103,6 +105,24 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/event-requests"
+  element={
+    <ProtectedRoute>
+      <EventRequests />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/events-management"
+  element={
+    <ProtectedRoute>
+      <EventsManagement />
+    </ProtectedRoute>
+  }
+/>
       </Routes>
     </HashRouter>
   );

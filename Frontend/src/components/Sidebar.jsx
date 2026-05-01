@@ -10,6 +10,8 @@ function Sidebar() {
     { path: "/chat-feedback", label: "Chat & Feedback", icon: "✉" },
     { path: "/payments", label: "Payments", icon: "◌" },
     { path: "/analytics", label: "Analytics", icon: "△" },
+    { path: "/event-requests", label: "Event Requests", icon: "□" },
+    { path: "/events-management", label: "Events", icon: "▣" },
     { path: "/settings", label: "Settings", icon: "⚙" },
   ];
 
