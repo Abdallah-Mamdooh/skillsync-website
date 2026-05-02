@@ -16,7 +16,7 @@ function Mentors() {
     field: "",
     rating: 0,
     sessions: 0,
-    status: "Active",
+    status: "Pending",
   });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -41,7 +41,7 @@ function Mentors() {
         throw new Error(data.message || "Failed to load mentors");
       }
 
-      setMentors(data);
+      setMentors(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || "Failed to load mentors");
     } finally {
@@ -52,6 +52,32 @@ function Mentors() {
   useEffect(() => {
     fetchMentors();
   }, []);
+
+  const isMentorVerified = (mentor) => {
+    const status = String(mentor.status || "").toLowerCase();
+    const verificationStatus = String(
+      mentor.verificationStatus || ""
+    ).toLowerCase();
+
+    return (
+      status === "active" ||
+      status === "verified" ||
+      mentor.isVerified === true ||
+      mentor.verified === true ||
+      verificationStatus === "approved" ||
+      verificationStatus === "verified"
+    );
+  };
+
+  const getMentorDisplayStatus = (mentor) => {
+    if (isMentorVerified(mentor)) return "Verified";
+
+    const status = String(mentor.status || "").trim();
+
+    if (!status) return "Pending";
+
+    return status;
+  };
 
   const openViewModal = (mentor) => {
     setSelectedMentor(mentor);
@@ -71,7 +97,7 @@ function Mentors() {
       field: mentor.field || "",
       rating: mentor.rating || 0,
       sessions: mentor.sessions || 0,
-      status: mentor.status || "Active",
+      status: mentor.status || "Pending",
     });
     setIsEditModalOpen(true);
   };
@@ -93,6 +119,7 @@ function Mentors() {
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
+
     setEditForm((prev) => ({
       ...prev,
       [name]:
@@ -129,6 +156,46 @@ function Mentors() {
     }
   };
 
+  const handleVerifyMentor = async (mentor) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to verify ${mentor.name}? This will allow the mentor to access their account.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/mentors/${mentor._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: mentor.name || "",
+            email: mentor.email || "",
+            field: mentor.field || "",
+            rating: mentor.rating || 0,
+            sessions: mentor.sessions || 0,
+            status: "Active",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to verify mentor");
+      }
+
+      alert("Mentor verified successfully");
+      fetchMentors();
+    } catch (err) {
+      alert(err.message || "Failed to verify mentor");
+    }
+  };
+
   const handleDeleteMentor = async () => {
     if (!mentorToDelete) return;
 
@@ -157,9 +224,9 @@ function Mentors() {
   };
 
   const getStatusStyle = (status) => {
-    const normalized = (status || "").toLowerCase();
+    const normalized = String(status || "").toLowerCase();
 
-    if (normalized === "active") {
+    if (normalized === "verified" || normalized === "active") {
       return {
         background: "rgba(34,197,94,0.15)",
         color: "#86efac",
@@ -188,7 +255,7 @@ function Mentors() {
         <h1 style={{ fontSize: "26px", margin: 0 }}>Mentor Monitoring</h1>
 
         <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "14px" }}>
-          View mentor profiles, specialization, ratings, and activity.
+          View mentor profiles, review pending registrations, and verify mentors.
         </p>
       </div>
 
@@ -201,7 +268,9 @@ function Mentors() {
         }}
       >
         {loading ? (
-          <p style={{ color: "rgba(255,255,255,0.75)" }}>Loading mentors...</p>
+          <p style={{ color: "rgba(255,255,255,0.75)" }}>
+            Loading mentors...
+          </p>
         ) : error ? (
           <p style={{ color: "#ff7d7d" }}>{error}</p>
         ) : (
@@ -218,75 +287,93 @@ function Mentors() {
             </thead>
 
             <tbody>
-              {mentors.map((mentor) => (
-                <tr
-                  key={mentor._id}
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-                >
-                  <td style={{ padding: "14px 0", fontWeight: "600" }}>
-                    {mentor.name}
-                  </td>
+              {mentors.map((mentor) => {
+                const displayStatus = getMentorDisplayStatus(mentor);
+                const verified = isMentorVerified(mentor);
 
-                  <td style={{ color: "rgba(255,255,255,0.75)" }}>
-                    {mentor.field}
-                  </td>
+                return (
+                  <tr
+                    key={mentor._id}
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+                  >
+                    <td style={{ padding: "14px 0", fontWeight: "600" }}>
+                      {mentor.name || "Unnamed Mentor"}
+                    </td>
 
-                  <td style={{ color: "#F5A100", fontWeight: "600" }}>
-                    ⭐ {mentor.rating}
-                  </td>
+                    <td style={{ color: "rgba(255,255,255,0.75)" }}>
+                      {mentor.field || "Not specified"}
+                    </td>
 
-                  <td style={{ color: "rgba(255,255,255,0.75)" }}>
-                    {mentor.sessions}
-                  </td>
+                    <td style={{ color: "#F5A100", fontWeight: "600" }}>
+                      ⭐ {mentor.rating || 0}
+                    </td>
 
-                  <td>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "6px 12px",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        fontWeight: "700",
-                        ...getStatusStyle(mentor.status),
-                      }}
-                    >
-                      {mentor.status || "Active"}
-                    </span>
-                  </td>
+                    <td style={{ color: "rgba(255,255,255,0.75)" }}>
+                      {mentor.sessions || 0}
+                    </td>
 
-                  <td>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        flexWrap: "wrap",
-                        padding: "10px 0",
-                      }}
-                    >
-                      <button
-                        onClick={() => openViewModal(mentor)}
-                        style={actionBtn}
+                    <td>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "6px 12px",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          ...getStatusStyle(displayStatus),
+                        }}
                       >
-                        View
-                      </button>
+                        {displayStatus}
+                      </span>
+                    </td>
 
-                      <button
-                        onClick={() => openEditModal(mentor)}
-                        style={actionBtn}
+                    <td>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                          padding: "10px 0",
+                        }}
                       >
-                        Edit
-                      </button>
+                        <button
+                          onClick={() => openViewModal(mentor)}
+                          style={actionBtn}
+                        >
+                          View
+                        </button>
 
-                      <button
-                        onClick={() => openDeleteModal(mentor)}
-                        style={deleteBtn}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        <button
+                          onClick={() => openEditModal(mentor)}
+                          style={actionBtn}
+                        >
+                          Edit
+                        </button>
+
+                        {verified ? (
+                          <button disabled style={verifiedBtn}>
+                            Verified
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleVerifyMentor(mentor)}
+                            style={verifyBtn}
+                          >
+                            Verify
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => openDeleteModal(mentor)}
+                          style={deleteBtn}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {mentors.length === 0 && (
                 <tr>
@@ -344,17 +431,19 @@ function Mentors() {
 
                 <div>
                   <p style={detailsLabel}>Rating</p>
-                  <p style={detailsValue}>⭐ {selectedMentor.rating}</p>
+                  <p style={detailsValue}>⭐ {selectedMentor.rating || 0}</p>
                 </div>
 
                 <div>
                   <p style={detailsLabel}>Sessions</p>
-                  <p style={detailsValue}>{selectedMentor.sessions}</p>
+                  <p style={detailsValue}>{selectedMentor.sessions || 0}</p>
                 </div>
 
                 <div>
                   <p style={detailsLabel}>Status</p>
-                  <p style={detailsValue}>{selectedMentor.status}</p>
+                  <p style={detailsValue}>
+                    {getMentorDisplayStatus(selectedMentor)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -488,9 +577,9 @@ function Mentors() {
                     onChange={handleEditChange}
                     style={inputStyle}
                   >
+                    <option value="Pending">Pending</option>
                     <option value="Active">Active</option>
                     <option value="Rejected">Rejected</option>
-                    <option value="Pending">Pending</option>
                   </select>
                 </div>
 
@@ -668,6 +757,24 @@ const actionBtn = {
   background: "transparent",
   color: "#fff",
   cursor: "pointer",
+};
+
+const verifyBtn = {
+  padding: "6px 12px",
+  borderRadius: "10px",
+  border: "1px solid rgba(34,197,94,0.25)",
+  background: "rgba(34,197,94,0.12)",
+  color: "#86efac",
+  cursor: "pointer",
+};
+
+const verifiedBtn = {
+  padding: "6px 12px",
+  borderRadius: "10px",
+  border: "1px solid rgba(34,197,94,0.18)",
+  background: "rgba(34,197,94,0.06)",
+  color: "rgba(134,239,172,0.65)",
+  cursor: "not-allowed",
 };
 
 const deleteBtn = {
